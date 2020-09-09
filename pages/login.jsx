@@ -22,15 +22,17 @@ function Home() {
   }
 
   const router = useRouter();
+  // const [{}, logout] = useMutation(LOGOUT_MUTATION);
   function handleLogin(e) {
+    setToken(null);
     e.preventDefault();
     login({ usernameOrEmail, password })
-      .then((res) => {
-        if (res.error) throw res.error;
-        setToken(res.data.login);
+      .then(({ data, error }) => {
+        if (error) throw error;
+        setToken(data.login);
         router.push("/");
       })
-      .catch((e) => console.error(e));
+      .catch(console.log);
   }
 
   const [{}, login] = useMutation(LOGIN_MUTATION);

@@ -21,9 +21,13 @@ function Home() {
     }
   `;
 
-  const [{ fetching, data, error }] = useQuery({
+  const [{ fetching, data, error }, userRefetch] = useQuery({
     query: USER_QUERY,
   });
+
+  function handleRefetch() {
+    userRefetch({ requestPolicy: "network-only" });
+  }
 
   if (fetching && !data) return <div>Loading...</div>;
 
@@ -38,6 +42,9 @@ function Home() {
 
       <main className={styles.main}>
         <pre>{data && JSON.stringify(data.user, null, 2)}</pre>
+        <div>
+          <button onClick={handleRefetch}>Refetch</button>
+        </div>
       </main>
 
       <footer className={styles.footer}>

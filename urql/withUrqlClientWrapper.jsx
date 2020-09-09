@@ -1,23 +1,29 @@
 import Router from "next/router";
 import { dedupExchange, fetchExchange } from "urql";
 import { cacheExchange } from "@urql/exchange-graphcache";
+import { devtoolsExchange } from "@urql/devtools";
 import { withUrqlClient } from "next-urql";
 
 import { authExchange } from "./exchanges/authExchange.ts";
 import { errorExchange } from "./exchanges/errorExchange.ts";
 
-import LOGOUT_MUTATION from "./graphql/logout.mutation";
-import { refreshToken, setToken } from "../lib/auth/token";
+import {
+  refreshToken,
+  setToken,
+  isTokenExpired,
+  getToken,
+} from "../lib/auth/token";
 
 export default function withUrqlClientWrapper(options, Component) {
   return withUrqlClient(
     (ssrExchange, _ctx) => ({
       url: "http://localhost:8080/v1/graphql",
+      maskTypename: true,
       fetchOptions: {
         credentials: "include",
       },
-      maskTypename: true,
       exchanges: [
+        devtoolsExchange,
         dedupExchange,
         cacheExchange({
           keys: {
@@ -31,40 +37,44 @@ export default function withUrqlClientWrapper(options, Component) {
             },
           },
         }),
-        ssrExchange,
         errorExchange({
-          onError: (error, operation) => {
-            console.log(operation);
-            console.log(error);
+          onError: (error) => {
+            if (
+              error.graphQLErrors.some((e) =>
+                e.extensions?.code.includes("validation-failed")
+              )
+            )
+              Router.push("/login");
           },
         }),
+        ssrExchange,
         authExchange({
-          getAuth: async ({ authState, mutate }) => {
-            // try getting token from memory
-            if (!authState) {
-              const tokenData = await refreshToken(mutate);
-              if (tokenData) {
-                setToken(tokenData);
-                return tokenData;
-              }
+          getAuth: async ({ mutate }) => {
+            const tokenData = await refreshToken(mutate);
+            if (tokenData) {
+              setToken(tokenData);
+              return tokenData;
             }
-
-            if (authState) return authState;
-
             setToken(null);
-            await mutate(LOGOUT_MUTATION);
-            if (typeof window !== "undefined") Router.push("/login");
             return null;
           },
-          willAuthError: ({ authState }) => {
-            return !authState || new Date() > new Date(authState.expiredAt);
+          willAuthError: () => {
+            if (isTokenExpired(getToken())) {
+              setToken(null);
+              return true;
+            }
+            return false;
           },
           didAuthError: ({ error }) => {
-            return error.graphQLErrors.some((e) =>
-              e.message.includes("No token provided")
+            const authError = error.graphQLErrors.some((e) =>
+              e.extensions?.code.includes("invalid-jwt")
             );
+            if (authError) setToken(null);
+
+            return authError;
           },
-          addAuthToOperation: ({ authState, operation }) => {
+          addAuthToOperation: ({ operation }) => {
+            const authState = getToken();
             // the token isn't in the auth state, return the operation without changes
             if (!authState || !authState.token) {
               return operation;

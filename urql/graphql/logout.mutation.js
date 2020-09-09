@@ -1,8 +1,7 @@
 export default `
   mutation {
-    refresh {
-      token
-      expiredAt
+    logout {
+      success
     }
   }  
 `;

@@ -22,6 +22,7 @@ function Home() {
   }
 
   const router = useRouter();
+  // const [{}, logout] = useMutation(LOGOUT_MUTATION);
   function handleLogin(e) {
     setToken(null);
     e.preventDefault();

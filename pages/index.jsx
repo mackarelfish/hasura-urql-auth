@@ -11,12 +11,6 @@ function Home() {
         id
         username
         email
-        all_roles {
-          role {
-            id
-            name
-          }
-        }
       }
     }
   `;
